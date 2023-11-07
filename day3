@@ -1,0 +1,294 @@
+SELECT *
+FROM customer
+WHERE first_name = 'JAMIE' AND store_id =1;  -- AND 둘다 만족하는 
+
+SELECT *
+FROM customer
+WHERE first_name = 'JAMIE' OR store_id =1; -- OR 둘중 하나라도 만족하는 
+
+SELECT *
+FROM customer
+WHERE (first_name = 'STEVEN' OR last_name = 'YOUNG');
+
+SELECT *
+FROM customer
+WHERE (first_name = 'STEVEN' OR last_name = 'YOUNG')  -- 조건 2개 이상
+AND (create_date > '2006-01-01');
+
+SELECT *
+FROM customer
+WHERE (first_name != 'STEVEN' OR last_name <> 'YOUNG') -- not 연산자 !=, <>,   !()
+AND !(create_date = '2006-01-01');  
+
+-- customer에서 중복된 퍼스트 네임만 나타내고 싶다
+
+SELECT * , COUNT(first_name) AS cnt
+FROM customer
+GROUP BY first_name
+HAVING cnt >= 2 ; 
+
+/* 중복된 이름을 가진 사람들의 pk값을 얻고 싶다
+   1 - 중복된 이름을 찾아야함
+   2 - 찾은 값으로 서브쿼리를 만든다
+   3 - pk를 찾는다 ↓
+*/
+SELECT *
+FROM customer
+WHERE first_name IN -- 서브쿼리에 in은 컬럼이 하나여야 된다  WHERE이 하나면 SELECT도 하나   멀티도 가능
+(SELECT first_name
+FROM customer
+GROUP BY first_name
+HAVING COUNT(first_name) >= 2) ; 
+
+
+--  rental 테이블 에서 rental_date 가 2004년도인 렌탈 정보를 보고싶다
+
+SELECT * 
+FROM rental
+WHERE year(rental_date) = 2004;
+
+-- rental 테이블 에서 rental_date 가 2005년이 아니고 2006년이 아닌 레코드
+
+SELECT *  
+FROM rental
+WHERE year(rental_date) != 2005 AND year(rental_date) != 2006;
+
+SELECT *  
+FROM rental
+WHERE !(year(rental_date) IN (2005,2006));
+
+SELECT *  
+FROM rental
+WHERE year(rental_date) NOT IN (2005,2006);
+
+-- rental 테이블 에서 2005-05-25 이전 레코드 만
+
+SELECT *  
+FROM rental
+WHERE DATE(rental_date) < '2005-05-25';  --  함수 사용 x시  rental_date < '2005-05-25 00:00:00' 으로 자동 변환
+
+-- rental 테이블 에서 2005-06-14 ~ 2005-06-16 레코드 만   364개
+
+SELECT *  
+FROM rental
+WHERE DATE(rental_date) >= '2005-06-14' 
+AND DATE(rental_date) < '2005-06-16';
+
+SELECT *  
+FROM rental
+WHERE DATE(rental_date) BETWEEN '2005-06-14' AND '2005-06-15';   -- A~B까지
+
+
+-- BETWEEN 연산자 이용 payment 테이블에서 amount 값이 10.0~11.99레코드
+
+SELECT *  
+FROM payment
+WHERE amount BETWEEN 10.0 AND 11.99;
+
+
+--  문자열도 가능
+
+SELECT *  
+FROM customer
+WHERE last_name BETWEEN 'FA' AND 'FZ';
+
+
+-- P117 서브쿼리   쿼리문 안에 쿼리
+
+SELECT film_id, title, rating 
+FROM film 
+WHERE title LIKE '%PET%';   --  = 을 쓰면 pet과 완전히 같은것을 가져옴, like 는 포함   %는 아무 문자열을 의미 '%PET%'
+
+SELECT film_id, title, rating
+FROM film
+WHERE rating IN (SELECT DISTINCT rating FROM film WHERE title LIKE '%PET%');  -- DISTINCT 중복제거
+-- WHERE rating = (SELECT DISTINCT rating FROM film WHERE title LIKE '%PET%'); 은 에러 - IN은 값이 여러개 나와도 됨 =은 값 1개이기 때문
+
+-- Scalar (스칼라)쿼리  -- 값이 하나있을때  = 사용가능   레코드하나 컬럼하나
+SELECT film_id, title, rating
+FROM film
+WHERE rating = (SELECT rating FROM film WHERE title LIKE 'PET%'); 
+
+SELECT film_id, title, rating
+FROM film
+WHERE rating IN ('G','PG');  -- 위 문장은 이문장과 같음   DISTINCT 중복제거
+
+-- 문자열 함수 left, right, mid
+SELECT last_name, LEFT(last_name, 3), RIGHT(last_name, 2), MID(last_name, 3, 2), LENGTH(last_name)
+FROM customer;
+
+-- 고객 성이 Q로 시작하는 사람 레코드
+
+SELECT *
+FROM customer
+WHERE LEFT(last_name, 1) = 'Q'; 
+
+SELECT *
+FROM customer
+WHERE last_name LIKE 'Q%';  -- LIKE 문에서 쓰는 %와_를 와일드카드라 부름
+
+
+-- 와일드카드 (_, %)   _는 자리차지  %는 0~무한의 자리 차지
+-- EX 이메일  _% @ _%.__%
+SELECT *
+FROM customer
+WHERE last_name LIKE '_A_T%S';
+
+SELECT *
+FROM rental
+WHERE return_date is NULL;   -- null은 = 말고 is를 쓴다
+
+SELECT *
+FROM rental
+WHERE !(return_date IS NULL);
+
+SELECT *
+FROM rental
+WHERE return_date IS NOT NULL;  -- null은 is, is not 쓰는게 좋음
+
+-- 반납하지 않은 사람의 pk 풀네임, 빌려간 날짜 
+
+SELECT c.customer_id ,CONCAT(c.last_name, ' ', c.first_name) AS full_name, r.rental_date 
+FROM rental r
+JOIN customer c
+ON r.customer_id = c.customer_id
+WHERE return_date IS NULL;
+
+SELECT c.customer_id ,CONCAT(c.last_name, ' ', c.first_name) AS full_name, r.rental_date , f.title
+FROM rental r
+JOIN customer c
+ON r.customer_id = c.customer_id
+JOIN inventory i
+ON i.inventory_id = r.inventory_id
+JOIN film f
+ON f.film_id = i.film_id
+WHERE return_date IS NULL;
+
+-- p126 실습
+
+-- 4 - 1 
+
+SELECT *
+FROM payment
+WHERE customer_id BETWEEN 101 AND 120
+AND (customer_id <> 5 AND (amount > 8 OR DATE(payment_date) = '2005-08-23'));
+
+SELECT *
+FROM payment
+WHERE customer_id BETWEEN 101 AND 120
+AND (customer_id = 5 AND NOT (amount > 6 OR DATE(payment_date) = '2005-06-19'));
+
+SELECT *
+FROM payment
+WHERE amount IN (1.98, 7.98, 9.98);
+
+SELECT *
+FROM customer
+WHERE last_name LIKE '_AW%';
+
+
+-- p131 데카르트 곱 - 잘못된 방법이라 안씀
+
+SELECT COUNT(*)      --  599r
+FROM customer; 
+
+SELECT COUNT(*)      --  603r
+FROM address; 
+
+SELECT c.customer_id, a.address_id     -- 361,197r
+FROM customer c
+JOIN address a;  -- on절이 없으면 모든 레코드가 곱해져 부담이있음 하려면 프론트에서 함
+
+SELECT c.customer_id, a.address_id    -- 599r customer가 address를 참조하기 때문에
+FROM customer c                       -- 커스터머는 주소에 외래키가 걸림
+JOIN address a
+ON c.address_id = a.address_id;
+
+
+
+USE exam
+SELECT *
+FROM person;
+
+CREATE TABLE t_address(
+	  iaddress INT UNSIGNED AUTO_INCREMENT PRIMARY KEY
+	, NAME VARCHAR(10) NOT null
+);
+
+SELECT*
+FROM t_address;
+
+INSERT INTO t_address
+(NAME)
+VALUES 
+('대도시')
+,('도시')
+,('시골');
+
+CREATE TABLE t_customer(
+	  icustomer INT UNSIGNED AUTO_INCREMENT PRIMARY KEY  -- AUTO_INCREMENT는 값입력시마다 숫자를 올려줌 -  pk일때 pk 하나일때  정수일때 사용가능 
+	, NAME VARCHAR(10) NOT NULL 
+	, msg VARCHAR(30)
+	, iaddress INT UNSIGNED NOT NULL 
+	, FOREIGN KEY (iaddress) REFERENCES t_address(iaddress)  -- 참조하고있는 테이블(컬럼)에 있는 값만 주입
+);
+
+CREATE TABLE t_customer2(
+	  icustomer INT UNSIGNED AUTO_INCREMENT PRIMARY KEY
+	, NAME VARCHAR(10) NOT NULL 
+	, msg VARCHAR(30)
+	, iaddress INT UNSIGNED NOT NULL
+);
+
+SELECT * 
+FROM t_customer;
+
+INSERT INTO t_customer
+(NAME, iaddress)
+VALUES 
+  ('곽경록',1)
+, ('김경현',2)
+, ('김동하',3)
+, ('김태형',1)
+, ('김현빈',2);
+
+INSERT INTO t_customer2
+(NAME, iaddress)
+VALUES 
+  ('곽경록',1)
+, ('김경현',2)
+, ('김동하',3)
+, ('김태형',1)
+, ('김현빈',2)
+, ('김현수',4)
+, ('김현일',5);
+
+DELETE
+FROM t_customer
+WHERE icustomer >=6 ;
+
+SELECT *
+FROM t_address;
+SELECT *
+FROM t_customer;
+
+SELECT *
+FROM t_address a
+JOIN t_customer c
+ON a.iaddress = c.iaddress;
+
+SELECT *
+FROM t_customer2 c
+JOIN t_address a
+ON a.iaddress = c.iaddress;
+
+SELECT *
+FROM t_customer2;
+
+SELECT *, IFNULL(a.NAME, '부랑자') AS NAME  -- IFNULL(a , b) 만약 a가 null이라면 b를 넣겠다
+FROM t_customer2 c
+LEFT JOIN t_address a
+ON a.iaddress = c.iaddress;
+-- left 조인은 JOIN 기준으로 왼쪽(from) 다 쓸수있게 함  나오는걸 보장해주지만 t_address에 없는 값(4,5)는 없으니 null로 표시
+
+
